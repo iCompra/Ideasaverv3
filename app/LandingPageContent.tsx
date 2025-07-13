@@ -1,25 +1,6 @@
-import dynamic from 'next/dynamic';
-import LoadingSpinner from '@/src/components/ui/LoadingSpinner';
+'use client';
 
-// Dynamically import the main component to handle client-side rendering issues
-const LandingPageContent = dynamic(() => import('./LandingPageContent'), {
-  ssr: false,
-  loading: () => (
-    <div className="min-h-screen w-full flex items-center justify-center bg-dark-primary-bg">
-      <div className="text-center">
-        <LoadingSpinner />
-        <p className="text-dark-text-muted mt-4">Loading Idea Saver...</p>
-      </div>
-    </div>
-  )
-});
-
-/**
- * Main landing page - Uses dynamic import for WebContainer compatibility
- */
-export default function LandingPage() {
-  return <LandingPageContent />;
-}
+import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LavaLamp } from '@/components/ui/fluid-blob';
@@ -88,11 +69,9 @@ function DataPrivacyCard({ icon, title, description, delay = 0 }: DataPrivacyCar
 }
 
 /**
- * Public Landing Page - Showcases Idea Saver with LavaLamp background
- * Accessible to all users (logged in or out)
- * ENFORCES bg-dark-primary-bg and proper layout
+ * Landing page content component - Separated for dynamic import
  */
-export default function LandingPage() {
+export default function LandingPageContent() {
   const { user } = useAppStore();
   const router = useRouter();
 

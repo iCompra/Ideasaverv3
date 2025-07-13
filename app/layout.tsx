@@ -1,14 +1,18 @@
 // src/app/layout.tsx - Este archivo está correcto como lo tienes.
-import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import './globals.css';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/toaster';
 import Header from '@/src/components/Header';
 import Footer from '@/src/components/Footer';
 import { AuthProvider } from '@/src/hooks/use-auth';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ 
+  subsets: ['latin'],
+  display: 'swap',
+  fallback: ['system-ui', 'arial']
+});
 
 export const metadata: Metadata = {
   title: 'Idea Saver - Capture Your Thoughts',
@@ -26,10 +30,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} min-h-screen bg-dark-primary-bg`}>
         {/* ThemeProvider DEBE envolver a AuthProvider */}
-        <ThemeProvider attribute="class" defaultTheme="dark">
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
           {/* AuthProvider DEBE envolver los hijos y componentes que usen useAuth */}
           <AuthProvider>
             <div className="min-h-screen bg-dark-primary-bg text-dark-text-light flex flex-col"> {/* Añadido flex-col */}

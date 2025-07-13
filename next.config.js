@@ -1,12 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Simplified config for WebContainer compatibility
+  experimental: {
+    esmExternals: 'loose'
+  },
+  transpilePackages: ['@supabase/supabase-js', '@supabase/ssr'],
   webpack: (config, { isServer }) => {
-    // Disable webpack caching to prevent ENOENT cache file errors
+    // Disable webpack caching for WebContainer stability
     config.cache = false;
     
-    // Exclude server-side libraries from the client-side bundle
+    // Add WebContainer-specific configurations
     if (!isServer) {
-      config.externals.push('bufferutil', 'utf-8-validate');
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      };
     }
 
     return config;
