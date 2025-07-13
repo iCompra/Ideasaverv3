@@ -33,6 +33,7 @@ export default function LoginPage() {
       router.push('/record');
     }
   }, [user, authLoading, router]);
+
   /**
    * Check Supabase configuration on component mount
    */
@@ -45,7 +46,17 @@ export default function LoginPage() {
     }
   }, []);
 
+  /**
+   * Clear error when switching tabs or changing form values
+   */
+  useEffect(() => {
+    if (isSupabaseReady()) {
+      setError(null);
+    }
+  }, [activeTab, email, password]);
+
   // Show loading if auth state is pending OR user is already authenticated (and redirecting)
+  // This conditional rendering is now placed AFTER all hook declarations.
   if (authLoading || user) {
     console.log('LoginPage: Is loading or User is present, rendering redirect/loading...');
     return (
@@ -59,15 +70,6 @@ export default function LoginPage() {
       </div>
     );
   }
-
-  /**
-   * Clear error when switching tabs or changing form values
-   */
-  useEffect(() => {
-    if (isSupabaseReady()) {
-      setError(null);
-    }
-  }, [activeTab, email, password]);
 
   /**
    * Handle form validation
