@@ -1,10 +1,8 @@
-'use client';
+'use client'; // CRITICAL: Mark as client component, as it uses hooks and framer-motion
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { LavaLamp } from '@/components/ui/fluid-blob';
-import { useAppStore } from '@/src/store/useAppStore';
 import { 
   Mic, 
   Sparkles, 
@@ -15,6 +13,8 @@ import {
   ArrowRight,
   CheckCircle
 } from 'lucide-react';
+import { LavaLamp } from '@/components/ui/fluid-blob';
+import { useAuth } from '@/src/hooks/use-auth'; // CRITICAL: Use useAuth instead of useAppStore
 
 interface FeatureCardProps {
   icon: React.ReactNode;
@@ -69,18 +69,22 @@ function DataPrivacyCard({ icon, title, description, delay = 0 }: DataPrivacyCar
 }
 
 /**
- * Landing page content component - Separated for dynamic import
+ * Public Landing Page Content - Showcases Idea Saver with LavaLamp background
+ * Accessible to all users (logged in or out)
+ * ENFORCES bg-dark-primary-bg and proper layout
  */
 export default function LandingPageContent() {
-  const { user } = useAppStore();
+  const { user, isLoading } = useAuth(); // Use useAuth for user state
   const router = useRouter();
 
   const handlePrimaryAction = () => {
-    if (user) {
+    // Based on user authentication status, redirect to record or login
+    if (!isLoading && user) { // Ensure user state is stable before redirecting
       router.push('/record');
-    } else {
+    } else if (!isLoading && !user) {
       router.push('/login');
     }
+    // If isLoading, do nothing, the UI will show loading or let useAuth handle initial redirect
   };
 
   return (
