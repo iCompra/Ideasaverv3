@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import ErrorMessage from '@/src/components/ui/ErrorMessage';
 import LoadingSpinner from '@/src/components/ui/LoadingSpinner';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 /**
  * Login page component with premium design and theme-aware styling
  * Features smooth animations and enhanced UX
@@ -24,6 +24,7 @@ export default function LoginPage() {
    
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
 
   // --- CRITICAL: Redirection for authenticated users on login page ---
   useEffect(() => {
