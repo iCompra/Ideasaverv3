@@ -1,8 +1,8 @@
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
-Deno.serve(async (req) => {
-}
-)
-Deno.serve(async (req) => {
+
+serve(async (req) => {
+  // CRITICAL: Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -79,5 +79,4 @@ Deno.serve(async (req) => {
       status: 500,
     });
   }
-}
-)
+});
