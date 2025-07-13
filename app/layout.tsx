@@ -26,10 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="bg-dark-primary-bg">
+    <html lang="en">
       <body className={`${inter.className} min-h-screen bg-dark-primary-bg`}>
         {/* ThemeProvider DEBE envolver a AuthProvider */}
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="dark">
           {/* AuthProvider DEBE envolver los hijos y componentes que usen useAuth */}
           <AuthProvider>
             <div className="min-h-screen bg-dark-primary-bg text-dark-text-light flex flex-col"> {/* Añadido flex-col */}
