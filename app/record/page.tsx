@@ -6,6 +6,7 @@ import { useAuth } from '@/src/hooks/use-auth';
 import RecordingControls from '@/src/components/RecordingControls';
 
 export default function RecordPage() {
+  console.log('RecordPage rendered');
   const { user, profile, isLoading } = useAuth(); 
   const router = useRouter(); 
 

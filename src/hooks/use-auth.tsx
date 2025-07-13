@@ -52,10 +52,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [router]);
 
   useEffect(() => {
+   console.log('useAuth: useEffect started');
     const supabase = getSupabaseBrowserClient();
     let isMounted = true; // Flag to prevent state updates on unmounted component
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+     console.log('useAuth: onAuthStateChange event:', event);
       if (!isMounted) return; // Prevent state updates if component unmounted
 
       console.log('🔐 useAuth: Auth State Change Event:', event, 'Session User ID:', session?.user?.id || 'none');
@@ -105,6 +107,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     console.log('🔍 useAuth: onAuthStateChange listener initialized.');
 
     return () => {
+     console.log('useAuth: useEffect cleanup');
       isMounted = false; // Cleanup for unmounted component
       if (authListener && authListener.subscription) {
         authListener.subscription.unsubscribe();
