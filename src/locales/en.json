@@ -1,0 +1,27 @@
+{
+  "app": {
+    "title": "Idea Saver",
+    "description": "Capture your thoughts and ideas with ease"
+  },
+  "navigation": {
+    "home": "Home",
+    "notes": "Notes",
+    "settings": "Settings"
+  },
+  "recording": {
+    "start": "Start Recording",
+    "stop": "Stop Recording",
+    "save": "Save Note",
+    "cancel": "Cancel"
+  },
+  "errors": {
+    "generic": "An error occurred. Please try again.",
+    "recording": "Recording failed. Please check your microphone permissions.",
+    "save": "Failed to save note. Please try again."
+  },
+  "loading": {
+    "default": "Loading...",
+    "saving": "Saving...",
+    "recording": "Recording..."
+  }
+}

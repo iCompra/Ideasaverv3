@@ -1,0 +1,202 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Shadcn/UI Variables - Dark Theme (Default) */
+    --background: 27 12% 12%; /* Dark primary bg */
+    --foreground: 0 0% 97%; /* Dark text light */
+    --card: 44 26% 20%; /* Dark secondary bg */
+    --card-foreground: 0 0% 97%;
+    --popover: 44 26% 20%;
+    --popover-foreground: 0 0% 97%;
+    --primary: 271 76% 53%; /* Accent purple */
+    --primary-foreground: 0 0% 97%;
+    --secondary: 44 26% 20%;
+    --secondary-foreground: 0 0% 97%;
+    --muted: 44 26% 20%;
+    --muted-foreground: 0 0% 69%; /* Dark text muted */
+    --accent: 271 76% 53%;
+    --accent-foreground: 0 0% 97%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 44 26% 25%; /* Dark border subtle */
+    --input: 44 26% 25%;
+    --ring: 271 76% 53%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.75rem;
+  }
+  
+  .light {
+    /* Shadcn/UI Variables - Light Theme */
+    --background: 240 10% 94%; /* Light primary bg */
+    --foreground: 0 0% 10%; /* Light text dark */
+    --card: 0 0% 100%; /* Light secondary bg */
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 271 76% 53%; /* Accent purple */
+    --primary-foreground: 0 0% 97%;
+    --secondary: 220 14% 91%; /* Light tertiary bg */
+    --secondary-foreground: 0 0% 36%; /* Light text muted */
+    --muted: 220 14% 91%;
+    --muted-foreground: 0 0% 36%;
+    --accent: 271 76% 53%;
+    --accent-foreground: 0 0% 97%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 82%; /* Light border subtle */
+    --input: 220 13% 82%;
+    --ring: 271 76% 53%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    @apply bg-dark-primary-bg;
+  }
+  
+  body {
+    @apply bg-dark-primary-bg text-dark-text-light font-sans;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  .light html {
+    @apply bg-light-primary-bg;
+  }
+
+  .light body {
+    @apply bg-light-primary-bg text-light-text-dark;
+  }
+
+  /* Custom scrollbar for dark/light themes */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-dark-tertiary-bg;
+  }
+
+  .light ::-webkit-scrollbar-track {
+    @apply bg-light-tertiary-bg;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-dark-text-muted rounded-full;
+  }
+
+  .light ::-webkit-scrollbar-thumb {
+    @apply bg-light-text-muted rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-dark-text-light;
+  }
+
+  .light ::-webkit-scrollbar-thumb:hover {
+    @apply bg-light-text-dark;
+  }
+}
+
+@layer components {
+  /* Theme-aware gradient buttons */
+  .btn-gradient {
+    @apply bg-gradient-to-r from-accent-purple to-accent-blue;
+    @apply hover:from-accent-purple/90 hover:to-accent-blue/90;
+    @apply text-white font-medium;
+    @apply transition-all duration-200;
+    @apply shadow-lg hover:shadow-xl;
+  }
+
+  .btn-gradient:hover {
+    box-shadow: 0 10px 25px rgba(138, 43, 226, 0.3);
+  }
+
+  /* Theme-aware input fields */
+  .input-field {
+    @apply bg-dark-tertiary-bg border border-dark-border-subtle;
+    @apply text-dark-text-light placeholder-dark-text-muted;
+    @apply rounded-lg px-3 py-2;
+    @apply focus:outline-none focus:ring-2 focus:ring-accent-purple focus:border-transparent;
+    @apply transition-all duration-200;
+  }
+
+  .light .input-field {
+    @apply bg-light-tertiary-bg border-light-border-subtle;
+    @apply text-light-text-dark placeholder-light-text-muted;
+  }
+
+  /* Theme-aware cards */
+  .card-themed {
+    @apply bg-dark-secondary-bg border border-dark-border-subtle;
+    @apply rounded-xl shadow-lg;
+    @apply transition-all duration-300;
+  }
+
+  .light .card-themed {
+    @apply bg-light-secondary-bg border-light-border-subtle;
+  }
+
+  .card-themed:hover {
+    @apply shadow-xl;
+    transform: translateY(-2px);
+  }
+
+  /* Smooth theme transitions */
+  .theme-transition {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  /* Custom focus styles */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2;
+  }
+
+  .focus-ring {
+    @apply focus:ring-offset-dark-primary-bg;
+  }
+
+  .light .focus-ring {
+    @apply focus:ring-offset-light-primary-bg;
+  }
+}
+
+/* Animation for theme switching */
+.theme-switching {
+  animation: theme-transition 0.3s ease-in-out;
+}
+
+/* Gradient text effect */
+.gradient-text {
+  background: linear-gradient(135deg, #8A2BE2, #5A55F5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass morphism effect for premium feel */
+.glass-effect {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-effect {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}

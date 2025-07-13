@@ -1,0 +1,87 @@
+## Evaluación del Problema y Propuesta de Solución para el Error de Autenticación
+
+**Problema Identificado:**
+El proyecto "Idea Saver" presenta una cascada de problemas interconectados relacionados con la autenticación y la gestión del perfil de usuario, que culminan en un bucle de redirección post-login y el error "Rendered fewer hooks than expected".
+
+**Análisis de las Causas Raíz:**
+1.  **Condición de Carrera en la Sincronización de Estado (`Rendered fewer hooks than expected`):** El `useEffect` en `src/hooks/use-auth.tsx` que escucha los cambios de estado de autenticación (`onAuthStateChange`) actualiza los estados `user` y `profile` de forma asíncrona. Esto, combinado con la lógica de renderizado condicional en las páginas (`/login`, `/record`), provoca que React vea un número inconsistente de Hooks llamados durante los renders rápidos, especialmente cuando `isLoading` cambia o el `profile` aún no se ha cargado.
+2.  **Fallo en Creación/Carga de Perfil (RLS Violation):** Los logs de Supabase indican errores de Row-Level Security (RLS) al intentar hacer `upsert` del perfil. Esto sugiere que `auth.uid()` podría no estar disponible o ser `NULL` en el contexto del cliente justo después de la autenticación, impidiendo que la política RLS valide la inserción del perfil. Si el perfil no se carga, la aplicación permanece en un estado inconsistente, exacerbando el problema de los Hooks.
+3.  **Bucle de Redirección:** Es un síntoma de los dos problemas anteriores. `useAuth` intenta redirigir a `/record` al detectar un usuario, pero si `/record` no puede cargar el perfil o entra en un estado de carga prolongado, su propia lógica defensiva redirige de nuevo a `/login`, creando un ciclo.
+
+**Propuesta de Solución (Fase 1: Estabilización de Hooks y Carga):**
+La solución inicial se centra en estabilizar la gestión del estado en `src/hooks/use-auth.tsx` para mitigar la condición de carrera y el error de los Hooks. Esto se logrará mediante:
+
+1.  **Uso de `isMounted`:** Introducir una bandera `isMounted` dentro del `useEffect` para asegurar que las actualizaciones de estado (`setUser`, `setProfile`, `setIsLoading`) solo ocurran si el componente `AuthProvider` aún está montado. Esto previene errores cuando el componente se desmonta antes de que las operaciones asíncronas (`onAuthStateChange`, `upsert`) se completen.
+2.  **Gestión Consistente de `isLoading`:**
+    *   `setIsLoading(true)` al inicio de cada procesamiento de cambio de estado de autenticación dentro de `onAuthStateChange`. Esto asegura que la UI refleje un estado de carga mientras se resuelven `user` y `profile`.
+    *   `setIsLoading(false)` solo después de que todas las operaciones asíncronas (obtención de `user` y `profile` o determinación de su ausencia) hayan finalizado y los estados correspondientes se hayan establecido. Esto garantiza que `isLoading` sea `false` solo cuando el estado de autenticación y perfil es definitivo para ese render.
+3.  **Revisión de la Lógica de `upsert`:** Aunque la solución principal se enfoca en los Hooks, la revisión del `upsert` de perfil dentro de `onAuthStateChange` es crucial. La implementación actual ya intenta un `upsert` con `onConflict: 'id'`, lo cual es correcto. El problema de RLS probablemente requiere una revisión de las políticas de Supabase o una estrategia de creación de perfil más robusta (posiblemente en una función de Supabase o un webhook) si el `auth.uid()` no es fiable en el cliente en el momento del `upsert`.
+
+**Cambios Específicos en `src/hooks/use-auth.tsx`:**
+Se modificará el `useEffect` principal para incluir la lógica de `isMounted` y la gestión de `isLoading` de la siguiente manera:
+
+```typescript
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    let isMounted = true; // Flag to prevent state updates on unmounted component
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return; // Prevent state updates if component unmounted
+
+      console.log('🔐 useAuth: Auth State Change Event:', event, 'Session User ID:', session?.user?.id || 'none');
+      setIsLoading(true); // Set loading at the start of any auth state change processing
+
+      if (session?.user) {
+        console.log('✅ useAuth: User detected, fetching profile for ID:', session.user.id, 'Email:', session.user.email);
+        setUser(session.user); // Set user immediately
+
+        const { data: profileData, error: profileUpsertError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: session.user.id,
+            email: session.user.email,
+            credits: 25, 
+            current_plan: 'free',
+            has_purchased_app: false,
+            cloud_sync_enabled: false,
+            auto_cloud_sync: false,
+            deletion_policy_days: 0,
+            created_at: new Date().toISOString()
+          }, { onConflict: 'id' })
+          .select('*')
+          .single();
+
+        if (!isMounted) return; // Check again after async operation
+
+        if (profileUpsertError) {
+          console.error('❌ useAuth: Error upserting user profile:', profileUpsertError);
+          setProfile(null);
+        } else {
+          console.log('✅ useAuth: Profile upserted/fetched successfully:', profileData?.id, 'Credits:', profileData?.credits);
+          setProfile(profileData as UserProfile);
+        }
+      } else {
+        console.log('🚪 useAuth: No user detected (logged out or initial load)');
+        setUser(null);
+        setProfile(null);
+      }
+
+      if (isMounted) {
+        setIsLoading(false); // Set loading to false only after all state is resolved
+        console.log('🔄 useAuth: Auth state processed. isLoading set to false.');
+      }
+    });
+
+    console.log('🔍 useAuth: onAuthStateChange listener initialized.');
+
+    return () => {
+      isMounted = false; // Cleanup for unmounted component
+      if (authListener && authListener.subscription) {
+        authListener.subscription.unsubscribe();
+      }
+    };
+  }, []); // Dependency array is empty: this useEffect runs once on mount.
+```
+
+**Próximos Pasos:**
+Una vez que se apliquen estos cambios, se deberá probar el flujo de login y la navegación para verificar si el bucle de redirección y el error de Hooks se han resuelto. Si el problema de RLS persiste, se requerirá una investigación más profunda de las políticas de Supabase y/o la implementación de la creación de perfiles.

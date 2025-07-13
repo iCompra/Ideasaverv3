@@ -1,0 +1,35 @@
+Al final de nuestra última sesión, el proyecto presentaba un comportamiento muy frustrante y un error recurrente que impedía una experiencia de usuario fluida tras el login.
+
+Síntomas Principales:
+
+    Bucle de Redirección Post-Login: El usuario se logueaba con éxito (su email y "Out" aparecían brevemente en el Header), pero la aplicación no se quedaba en /record. En cambio, regresaba inmediatamente a la página de aterrizaje pública (/) o a la página de login (/login), creando un bucle.
+
+    Error Rendered fewer hooks than expected: Este era el error técnico visible en la consola del navegador y en la superposición de errores de Next.js.
+
+    Fallo en Creación/Carga de Perfil (RLS Violation): Los logs de Supabase mostraban un error status 401 o 406 con message: "new row violates row-level security policy for table "profiles"" (code:"42501") o details:"The result contains 0 rows" (code:"PGRST116").
+
+Análisis del Problema y Posibles Causas:
+
+Este no era un solo error, sino una cascada de problemas interconectados que se alimentaban entre sí:
+
+1. La Raíz de "Rendered fewer hooks than expected": Condición de Carrera en la Sincronización de Estado (Principal sospechoso)
+
+    El Error: React impone una regla estricta: los Hooks (useState, useEffect, useContext, useAuth, useRouter, etc.) deben ser llamados en el mismo orden en cada renderizado de un componente. Si el número u orden de Hooks cambia (por ejemplo, porque un useEffect se llama condicionalmente o porque un componente hace un return temprano antes de que todos los Hooks se declaren), React lanza este error.
+
+    Por qué ocurría aquí: Nuestra aplicación tiene una lógica de autenticación asíncrona (useAuth) que carga el user y luego el profile. Las páginas como /login y /record tienen una lógica de renderizado condicional basada en el estado de isLoading, user y profile.
+
+        La Condición de Carrera: En el momento preciso en que un usuario se logueaba, useAuth (que reside globalmente en app/layout.tsx) empezaba a actualizar su estado (isLoading pasa de true a false, user de null a objeto, profile de null a objeto). Este proceso no es instantáneo.
+
+        Mientras useAuth actualizaba su estado, los componentes de la página (ej. app/record/page.tsx o app/login/page.tsx) estaban siendo renderizados múltiples veces en rápida sucesión. Si, en un render, isLoading era true (mostrando un spinner), pero en el siguiente microsegundo isLoading pasaba a false y user ya era un objeto (pero profile aún no estaba cargado), la lógica condicional del componente de la página podría "saltar" entre diferentes ramas de if (if(isLoading) -> if(!user) -> if(!profile)), provocando que React viera un número inconsistente de Hooks llamados. Por ejemplo, si useEffect estaba dentro de if(!user), y user cambiaba de null a objeto, ese useEffect dejaría de ser llamado en subsiguientes renders, violando la regla.
+
+2. El Problema Persistente de RLS y Creación de Perfil (Agravaba el error anterior)
+
+    El Error: new row violates row-level security policy for table "profiles" o The result contains 0 rows. A pesar de que teníamos el upsert en useAuth y las políticas RLS aparentemente correctas, la creación del perfil en public.profiles fallaba para los usuarios recién registrados.
+
+    La Causa: En el momento exacto en que useAuth intentaba hacer el upsert del perfil desde el cliente (justo después de que el usuario se autenticaba vía Supabase Auth), auth.uid() (necesario para la política RLS auth.uid() = id) podría no estar completamente disponible o ser NULL para la sesión recién iniciada en el contexto del cliente. Supabase, al evaluar la política RLS, denegaba la inserción porque no podía verificar que el id del perfil a insertar coincidiera con un auth.uid() válido.
+
+    Cómo se conectaba a "Fewer Hooks": Si el upsert fallaba, el profile del usuario permanecía null. Esto hacía que la página /record (o /login) se quedara en un estado donde user estaba presente pero profile era null, lo que activaba una de las ramas condicionales que mostraban un spinner o intentaban redirigir, exacerbando la inconsistencia de Hooks.
+
+3. El Bucle de Redirección (El Síntoma Visible)
+
+    La Causa: Este era el resultado de la interacción de los dos problemas anteriores. useAuth (en el layout global) llamaba a router.push('/record') cuando detectaba al usuario. Sin embargo, si app/record/page.tsx (debido al problema de Hooks o RLS fallido) entraba en un estado de "no perfil" o "cargando perfil", su propia lógica defensiva de useEffect (que redirigía a /login) se disparaba, llevando al usuario de vuelta. Se creaba un "ping-pong" (/login -> /record -> /login) que el usuario percibía como un fallo al iniciar sesión.

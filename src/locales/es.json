@@ -1,0 +1,27 @@
+{
+  "app": {
+    "title": "Guardador de Ideas",
+    "description": "Captura tus pensamientos e ideas con facilidad"
+  },
+  "navigation": {
+    "home": "Inicio",
+    "notes": "Notas",
+    "settings": "Configuración"
+  },
+  "recording": {
+    "start": "Iniciar Grabación",
+    "stop": "Detener Grabación",
+    "save": "Guardar Nota",
+    "cancel": "Cancelar"
+  },
+  "errors": {
+    "generic": "Ocurrió un error. Por favor, inténtalo de nuevo.",
+    "recording": "La grabación falló. Por favor, verifica los permisos del micrófono.",
+    "save": "Error al guardar la nota. Por favor, inténtalo de nuevo."
+  },
+  "loading": {
+    "default": "Cargando...",
+    "saving": "Guardando...",
+    "recording": "Grabando..."
+  }
+}
