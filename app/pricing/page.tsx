@@ -1,52 +1,93 @@
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/hooks/use-auth';
 import { getSupabaseBrowserClient } from '@/src/lib/supabaseClient';
-import { logError } from '@/src/lib/errorLogger';
-import { toast } from 'sonner';
-import { useToast } from '@/components/ui/use-toast';
-import { 
-  Check, 
-  Star, 
-  Zap, 
-  Crown, 
-  Gift,
-  Loader2
-} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast'; // Correct import for Shadcn toast hook
+import { Check, Star, Gift, DollarSign, Wallet, Gem } from 'lucide-react';
 
-/**
- * Pricing page component with gift code redemption functionality
- */
 export default function PricingPage() {
-  const { user, profile, isLoading: authLoading, updateCredits } = useAuth();
+  const { user, profile, isLoading, updateCredits } = useAuth();
   const router = useRouter();
+  // Initialize useToast hook
+  const { toast } = useToast();
+
   const [giftCode, setGiftCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
-  const [redeemError, setRedeemError] = useState<{ message: string; details: any } | null>(null);
+  const [isSelectingFreePlan, setIsSelectingFreePlan] = useState(false);
 
-  const { toast } = useToast();
-  /**
-   * Handle gift code redemption
-   */
-  const handleRedeemCode = async () => {
-    if (!user || !profile) {
-      toast({ title: 'Error', description: 'Please log in to redeem a gift code.', variant: 'destructive' });
+  // CRITICAL: Redirection for new users to enforce plan selection
+  useEffect(() => {
+    // If auth state is loaded, user is logged in, but NO plan is selected, redirect here.
+    // This page handles the plan selection.
+    // So, no redirection FROM this page if user exists and !profile.planSelected
+    // Redirection should primarily be handled FROM /login if !profile.planSelected.
+    // This page is a destination for plan selection.
+  }, [user, profile, isLoading, router]);
+
+
+  // --- Function to handle "Continue with Free Plan" ---
+  const handleSelectFreePlan = async () => {
+    if (!user || !profile || isLoading) {
+      toast({ title: "Error", description: "User not loaded.", variant: "destructive" });
       return;
     }
 
+    setIsSelectingFreePlan(true);
+    try {
+      // Update profile in Supabase to mark plan as selected and set free plan
+      const { error } = await getSupabaseBrowserClient()
+        .from('profiles')
+        .update({
+          current_plan: 'free',
+          plan_selected: true,
+          credits: 25 // Grant welcome credits
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error("Error selecting free plan:", error);
+        toast({ title: "Error", description: error.message || "Failed to select free plan.", variant: "destructive" });
+      } else {
+        // Update local state in useAuth
+        if (updateCredits) { // Assuming updateCredits can handle updating plan_selected as well
+            updateCredits(25); // Optimistically update credits
+            // A full refresh of profile via useAuth would be ideal here.
+            // For now, rely on useAuth's next re-fetch or page redirect.
+        }
+        toast({ title: "Success!", description: "You are now on the Free Plan! Enjoy 25 credits.", variant: "default" });
+        router.push('/record'); // Redirect to main app page
+      }
+    } catch (error: any) {
+      console.error("Unexpected error selecting free plan:", error);
+      toast({ title: "Error", description: error.message || "An unexpected error occurred.", variant: "destructive" });
+    } finally {
+      setIsSelectingFreePlan(false);
+    }
+  };
+
+  // --- Function to handle Gift Code Redemption (from previous prompt) ---
+  const handleRedeemCode = async () => {
+    if (!user || !profile || isLoading) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to redeem a gift code.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!giftCode.trim()) {
-      toast({ title: 'Error', description: 'Please enter a gift code.', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Please enter a gift code.',
+        variant: 'destructive',
+      });
       return;
     }
 
     setIsRedeeming(true);
-    setRedeemError(null);
-
     try {
-      // Call the Supabase Edge Function
       const { data, error } = await getSupabaseBrowserClient().functions.invoke('redeem-gift-code', {
         body: { code: giftCode.trim(), userId: user.id },
       });
@@ -54,266 +95,192 @@ export default function PricingPage() {
       if (error) {
         throw new Error(error.message);
       }
-
-      // Check for errors from the Edge Function's JSON response
       if (data && data.error) {
         throw new Error(data.error);
       }
 
-      // Success - update credits and show toast
       toast({
-        title: 'Gift Code Redeemed!',
-        description: `You now have ${data.newCredits.toLocaleString()} credits.`,
+        title: 'Success!',
+        description: `Gift code redeemed! You now have ${data.newCredits} credits.`,
+        variant: 'default',
       });
-
-      // Update the user's credit balance
-      await updateCredits(data.newCredits);
-      setGiftCode(''); // Clear the input field
-
+      if (updateCredits && typeof updateCredits === 'function') {
+        updateCredits(data.newCredits);
+      }
+      setGiftCode('');
     } catch (err: any) {
-      logError(err, { 
-        action: 'redeemGiftCode',
-        userId: user.id,
-        code: giftCode.trim()
-      });
-
-      setRedeemError({
-        message: err.message || 'An unexpected error occurred. Please try again.',
-        details: err
-      });
-
+      console.error('Redeem error:', err);
       toast({
         title: 'Redemption Failed',
         description: err.message || 'An unexpected error occurred. Please try again.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setIsRedeeming(false);
     }
   };
 
-  /**
-   * Handle plan selection
-   */
-  const handleSelectPlan = async (planName: string) => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-    
-    // Placeholder for payment integration
-    toast({
-        title: 'Plan Selected',
-        description: `${planName} plan selected! Payment integration coming soon.`
-    });
-  };
+  // --- Conditional Rendering for Loading State ---
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-dark-primary-bg">
+        <p className="text-dark-text-light">Loading plans...</p>
+      </div>
+    );
+  }
 
-  const plans = [
-    {
-      name: 'Free',
-      price: '$0',
-      period: 'forever',
-      credits: '2,500',
-      features: [
-        'Voice recording & transcription',
-        'Basic AI features',
-        'Local storage only',
-        'Standard support'
-      ],
-      popular: false,
-      buttonText: 'Current Plan',
-      disabled: true
-    },
-    {
-      name: 'Pro',
-      price: '$9',
-      period: 'month',
-      credits: '10,000',
-      features: [
-        'Everything in Free',
-        'Cloud sync & backup',
-        'Advanced AI tools',
-        'Priority support',
-        'Export to multiple formats'
-      ],
-      popular: true,
-      buttonText: 'Upgrade to Pro',
-      disabled: false
-    },
-    {
-      name: 'Enterprise',
-      price: '$29',
-      period: 'month',
-      credits: '50,000',
-      features: [
-        'Everything in Pro',
-        'Team collaboration',
-        'Custom integrations',
-        'Dedicated support',
-        'Advanced analytics'
-      ],
-      popular: false,
-      buttonText: 'Contact Sales',
-      disabled: false
-    }
-  ];
+  // If not logged in, or no profile, redirect to login (should be handled by useAuth for protected routes)
+  if (!user || !profile) {
+    useEffect(() => {
+      router.push('/login'); // If somehow user lands here unauthenticated
+    }, [router]);
+    return null;
+  }
+
+  // --- Main Page Content ---
+  const isProUser = profile.has_purchased_app || profile.current_plan === 'full_app_purchase';
+  const hasSelectedPlan = profile.plan_selected;
 
   return (
-    <div className="min-h-screen bg-dark-primary-bg pt-24 pb-16">
-      <div className="container mx-auto px-4">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <h1 className="text-4xl md:text-5xl font-bold text-dark-text-light mb-4 gradient-text">
-            Choose Your Plan
-          </h1>
-          <p className="text-lg text-dark-text-muted max-w-2xl mx-auto">
-            Start free and upgrade when you need more power. All plans include our core AI features.
-          </p>
-        </motion.div>
+    <div className="min-h-screen bg-dark-primary-bg text-dark-text-light py-10 px-4 flex flex-col items-center">
+      <div className="text-center mb-10 max-w-2xl">
+        <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
+        <p className="text-dark-text-muted text-lg mb-6">
+          Unlock Your Potential: A Guide to Idea Saver Credits
+        </p>
+        {/* Link to How Credits Work page */}
+        <a href="/credits" className="text-accent-purple hover:underline text-sm font-semibold">
+          How do AI Credits work?
+        </a>
+      </div>
 
-        {/* Gift Code Redemption Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="max-w-md mx-auto mb-16"
-        >
-          <div className="card-themed p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Gift className="w-5 h-5 text-accent-purple" />
-              <h3 className="text-lg font-semibold text-dark-text-light">Have a Gift Code?</h3>
-            </div>
-            <p className="text-sm text-dark-text-muted mb-4">
-              Redeem your gift code to get free credits instantly.
+      {/* Conditional Plan Display (based on isProUser and hasSelectedPlan) */}
+      {!isProUser && !hasSelectedPlan && (
+        // --- Display for NEW Users (no plan selected yet) ---
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl mb-12">
+          {/* Free Plan Card */}
+          <div className="bg-dark-secondary-bg p-8 rounded-xl shadow-lg flex flex-col items-center text-center">
+            <h2 className="text-2xl font-bold mb-4">Free Plan</h2>
+            <p className="text-dark-text-muted mb-6">
+              Test out Idea Saver with basic features and a few credits.
             </p>
-            
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                value={giftCode}
-                onChange={(e) => setGiftCode(e.target.value.toUpperCase())}
-                placeholder="Enter gift code"
-                className="input-field flex-1"
-                disabled={isRedeeming || authLoading}
-                onKeyPress={(e) => e.key === 'Enter' && handleRedeemCode()}
-              />
-              <motion.button
-                onClick={handleRedeemCode}
-                disabled={isRedeeming || !giftCode.trim() || authLoading}
-                className="btn-gradient px-4 py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 focus-ring"
-                whileTap={{ scale: 0.95 }}
-                whileHover={{ scale: 1.02 }}
-              >
-                {isRedeeming ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <span>Redeem</span>
-                )}
-              </motion.button>
-            </div>
-
-            {redeemError && (
-              <div className="mt-4">
-                <ErrorMessage
-                  message={redeemError.message}
-                  details={redeemError.details}
-                  onRetry={() => setRedeemError(null)}
-                />
-              </div>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Pricing Plans */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {plans.map((plan, index) => (
-            <motion.div
-              key={plan.name}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
-              className={`card-themed p-8 relative ${
-                plan.popular ? 'ring-2 ring-accent-purple' : ''
-              }`}
+            <ul className="text-left w-full mb-8 text-dark-text-light space-y-2">
+              <li className="flex items-center"><Check className="h-5 w-5 text-green-500 mr-2" /> 25 Welcome Credits</li>
+              <li className="flex items-center"><Check className="h-5 w-5 text-green-500 mr-2" /> Voice Recording & Playback</li>
+              <li className="flex items-center"><Check className="h-5 w-5 text-green-500 mr-2" /> AI Transcription & Titling</li>
+              <li className="flex items-center"><Check className="h-5 w-5 text-green-500 mr-2" /> Local Storage</li>
+            </ul>
+            <button
+              onClick={handleSelectFreePlan}
+              disabled={isSelectingFreePlan}
+              className="bg-gradient-to-r from-accent-purple to-accent-blue text-dark-text-light font-semibold py-3 px-8 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full"
             >
-              {/* Popular Badge */}
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <div className="bg-gradient-to-r from-accent-purple to-accent-blue px-4 py-1 rounded-full text-white text-sm font-medium flex items-center space-x-1">
-                    <Star className="w-3 h-3" />
-                    <span>Most Popular</span>
-                  </div>
-                </div>
-              )}
+              {isSelectingFreePlan ? 'Selecting...' : 'Continue with Free Plan'}
+            </button>
+          </div>
 
-              {/* Plan Header */}
-              <div className="text-center mb-6">
-                <h3 className="text-xl font-bold text-dark-text-light mb-2">{plan.name}</h3>
-                <div className="flex items-baseline justify-center space-x-1">
-                  <span className="text-3xl font-bold text-dark-text-light">{plan.price}</span>
-                  <span className="text-dark-text-muted">/{plan.period}</span>
-                </div>
-                <div className="mt-2 flex items-center justify-center space-x-1">
-                  <Zap className="w-4 h-4 text-accent-purple" />
-                  <span className="text-sm text-dark-text-muted">{plan.credits} credits</span>
-                </div>
-              </div>
-
-              {/* Features */}
-              <ul className="space-y-3 mb-8">
-                {plan.features.map((feature, featureIndex) => (
-                  <li key={featureIndex} className="flex items-start space-x-3">
-                    <Check className="w-4 h-4 text-accent-purple mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-dark-text-muted">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* CTA Button */}
-              <motion.button
-                onClick={() => handleSelectPlan(plan.name)}
-                disabled={plan.disabled}
-                className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 focus-ring ${
-                  plan.popular
-                    ? 'btn-gradient'
-                    : plan.disabled
-                    ? 'bg-dark-tertiary-bg text-dark-text-muted cursor-not-allowed'
-                    : 'bg-dark-tertiary-bg text-dark-text-light hover:bg-dark-tertiary-bg/80 border border-dark-border-subtle hover:border-accent-purple/40'
-                }`}
-                whileTap={{ scale: plan.disabled ? 1 : 0.95 }}
-                whileHover={{ scale: plan.disabled ? 1 : 1.02 }}
-              >
-                {plan.name === 'Enterprise' ? (
-                  <div className="flex items-center justify-center space-x-2">
-                    <Crown className="w-4 h-4" />
-                    <span>{plan.buttonText}</span>
-                  </div>
-                ) : (
-                  plan.buttonText
-                )}
-              </motion.button>
-            </motion.div>
-          ))}
+          {/* Full App Purchase Card (Pro Plan) */}
+          <div className="bg-dark-secondary-bg p-8 rounded-xl shadow-lg flex flex-col items-center text-center border-2 border-accent-purple">
+            <h2 className="text-2xl font-bold mb-4">Full App Access (Pro)</h2>
+            <p className="text-dark-text-muted mb-6">
+              Unlock unlimited AI features and cloud sync with a one-time purchase.
+            </p>
+            <ul className="text-left w-full mb-8 text-dark-text-light space-y-2">
+              <li className="flex items-center"><Star className="h-5 w-5 text-yellow-400 mr-2" /> Everything in Free, plus:</li>
+              <li className="flex items-center"><Check className="h-5 w-5 text-green-500 mr-2" /> Cloud Sync across devices</li>
+              <li className="flex items-center"><Check className="h-5 w-5 text-green-500 mr-2" /> All advanced AI features (no credit cost)</li>
+              <li className="flex items-center"><Check className="h-5 w-5 text-green-500 mr-2" /> Full-text search of your notes (coming soon)</li>
+              <li className="flex items-center"><Check className="h-5 w-5 text-green-500 mr-2" /> Priority support</li>
+              <li className="flex items-center"><Check className="h-5 w-5 text-green-500 mr-2" /> Access to future features & integrations</li>
+              <li className="flex items-center"><Gift className="h-5 w-5 text-pink-400 mr-2" /> Massive 1,500 Bonus Credits</li>
+            </ul>
+            <button
+              onClick={() => toast({ title: "Coming Soon!", description: "Payment integration is under development." })}
+              className="bg-gradient-to-r from-accent-purple to-accent-blue text-dark-text-light font-semibold py-3 px-8 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full"
+            >
+              Purchase Full App
+            </button>
+          </div>
         </div>
+      )}
 
-        {/* FAQ or Additional Info */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="text-center mt-16"
-        >
-          <p className="text-dark-text-muted text-sm">
-            All plans include a 30-day money-back guarantee. 
-            <br />
-            Need help choosing? <span className="text-accent-purple cursor-pointer hover:underline">Contact our team</span>
+      {/* Display for Existing Free Users (already selected free plan) */}
+      {!isProUser && hasSelectedPlan && (
+        <div className="text-center mb-10 w-full max-w-xl">
+          <h2 className="text-3xl font-bold mb-4">Your Current Plan: Free</h2>
+          <p className="text-dark-text-muted mb-8">
+            You're currently enjoying the Free Plan. Upgrade to unlock all premium features!
           </p>
-        </motion.div>
+          <button
+            onClick={() => toast({ title: "Coming Soon!", description: "Payment integration is under development." })}
+            className="bg-gradient-to-r from-accent-purple to-accent-blue text-dark-text-light font-semibold py-3 px-8 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+          >
+            Upgrade to Full App Access
+          </button>
+        </div>
+      )}
+
+      {/* Display for Pro Users (Full App Access) */}
+      {isProUser && (
+        <div className="text-center mb-10 w-full max-w-xl">
+          <h2 className="text-3xl font-bold mb-4">You have Full App Access!</h2>
+          <p className="text-dark-text-muted mb-8">
+            Thank you for supporting Idea Saver! All premium features are unlocked.
+          </p>
+          <button
+            onClick={() => toast({ title: "Thanks!", description: "Donation feature is under development." })}
+            className="bg-accent-purple text-dark-text-light font-semibold py-3 px-8 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+          >
+            Make a Donation
+          </button>
+        </div>
+      )}
+      
+      {/* Credit Packs Section (Always visible for top-ups) */}
+      <div className="text-center mb-10 w-full max-w-4xl">
+        <h2 className="text-3xl font-bold mb-4">Need More Credits?</h2>
+        <p className="text-dark-text-muted mb-8">
+          Top up your account to keep the ideas flowing.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
+          {/* Credit Pack Card Example */}
+          <div className="bg-dark-secondary-bg p-6 rounded-xl shadow-lg flex flex-col items-center">
+            <Gem className="h-8 w-8 text-yellow-400 mb-3" />
+            <h3 className="text-xl font-bold mb-2">100 Credits</h3>
+            <p className="text-dark-text-light text-lg mb-4">$4.99 USD</p>
+            <button
+              onClick={() => toast({ title: "Coming Soon!", description: "Credit pack purchases are under development." })}
+              className="bg-dark-tertiary-bg text-dark-text-muted font-semibold py-2 px-6 rounded-lg w-full"
+              disabled
+            >
+              Buy Now (Coming Soon!)
+            </button>
+          </div>
+          {/* Repeat for 500 Credits, 2000 Credits */}
+        </div>
+      </div>
+
+      {/* Gift Code Redemption Section */}
+      <div className="bg-dark-secondary-bg p-8 rounded-xl shadow-lg w-full max-w-md text-center mb-10">
+        <h2 className="text-xl font-bold mb-4">Have a Gift Code?</h2>
+        <p className="text-dark-text-muted mb-6">Enter your code below to redeem AI credits.</p>
+        <div className="flex flex-col sm:flex-row gap-4 w-full">
+          <input
+            type="text"
+            placeholder="Enter code here"
+            value={giftCode}
+            onChange={(e) => setGiftCode(e.target.value)}
+            className="flex-grow p-3 rounded-lg bg-dark-tertiary-bg text-dark-text-light border border-dark-border-subtle focus:border-accent-purple outline-none"
+            disabled={isRedeeming}
+          />
+          <button
+            onClick={handleRedeemCode}
+            disabled={isRedeeming || !giftCode.trim()}
+            className="bg-accent-purple text-dark-text-light px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity duration-200"
+          >
+            {isRedeeming ? 'Redeeming...' : 'Redeem'}
+          </button>
+        </div>
       </div>
     </div>
   );
