@@ -36,6 +36,11 @@
       "static/chunks/main-app.js",
       "static/chunks/app/record/page.js"
     ],
+    "/settings/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/settings/page.js"
+    ],
     "/not-found": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
