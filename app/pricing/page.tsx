@@ -41,7 +41,16 @@ export default function PricingPage() {
     }
 
     setIsSelectingFreePlan(true);
+    console.log('🔍 PricingPage: Attempting to select Free Plan for user:', user.id);
+    console.log('🔍 PricingPage: Current profile state:', profile);
+    
     try {
+      console.log('🔍 PricingPage: Sending Supabase update with data:', {
+        current_plan: 'free',
+        plan_selected: true,
+        credits: 25
+      });
+      
       // Update profile in Supabase to mark plan as selected and set free plan
       const { error } = await getSupabaseBrowserClient()
         .from('profiles')
@@ -53,9 +62,11 @@ export default function PricingPage() {
         .eq('id', user.id);
 
       if (error) {
-        console.error("Error selecting free plan:", error);
+        console.error("❌ PricingPage: Supabase error selecting free plan:", error);
+        console.error("❌ PricingPage: Error details:", JSON.stringify(error, null, 2));
         toast({ title: "Error", description: error.message || "Failed to select free plan.", variant: "destructive" });
       } else {
+        console.log("✅ PricingPage: Free Plan selected successfully in Supabase!");
         // Update local state in useAuth
         if (updateCredits && typeof updateCredits === 'function') {
           updateCredits(25); 
@@ -64,7 +75,8 @@ export default function PricingPage() {
         router.push('/record'); // Redirect to main app page after selection
       }
     } catch (error: any) {
-      console.error("Unexpected error selecting free plan:", error);
+      console.error("❌ PricingPage: Unexpected error selecting free plan:", error);
+      console.error("❌ PricingPage: Unexpected error details:", JSON.stringify(error, null, 2));
       toast({ title: "Error", description: error.message || "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setIsSelectingFreePlan(false);
