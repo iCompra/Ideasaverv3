@@ -1,9 +1,9 @@
 {
   "/page": "app/page.js",
-  "/about/page": "app/about/page.js",
   "/credits/page": "app/credits/page.js",
   "/record/page": "app/record/page.js",
   "/settings/page": "app/settings/page.js",
   "/history/page": "app/history/page.js",
-  "/login/page": "app/login/page.js"
+  "/login/page": "app/login/page.js",
+  "/pricing/page": "app/pricing/page.js"
 }
