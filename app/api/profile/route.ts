@@ -1,12 +1,8 @@
 // app/api/profile/route.ts
-// This is a Serverless Function (API Route) in Next.js App Router
-// It will run on the server, allowing us to use Supabase Service Role Key
-
 import { createClient } from '@supabase/supabase-js'; // Import the Supabase client library
 import { NextResponse } from 'next/server'; // For Next.js API Routes
 
 // CRITICAL: Initialize Supabase client with SERVICE_ROLE_KEY
-// Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in your .env.local for Next.js server environment
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '', // Use NEXT_PUBLIC for URL as it's client-exposed
   process.env.SUPABASE_SERVICE_ROLE_KEY || '' // Use direct env for SERVICE_ROLE_KEY as it's server-only
@@ -45,33 +41,52 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing userId or userEmail' }, { status: 400 });
     }
 
-    console.log('API Route: Attempting profile upsert with userId:', userId);
-    const { data: profileData, error: upsertError } = await adminClientInstance // Use the initialized instance
-      .from('profiles')
-      .upsert({
-        id: userId,
-        email: userEmail,
-        credits: 25, 
-        current_plan: 'free',
-        has_purchased_app: false,
-        cloud_sync_enabled: false,
-        auto_cloud_sync: false,
-        deletion_policy_days: 0,
-        created_at: new Date().toISOString()
-      }, { onConflict: 'id' }) 
-      .select('*') 
-      .single(); 
+    // --- CRITICAL: Implement "Read-or-Create" logic ---
+    console.log('API Route: Attempting to fetch existing profile for userId:', userId);
+    const { data: existingProfile, error: selectError } = await adminClientInstance
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    if (upsertError) {
-      console.error('❌ API Route Error upserting profile in Supabase (from DB response):', upsertError);
-      return NextResponse.json({ error: upsertError.message || 'Failed to upsert profile in DB' }, { status: 500 });
+    if (selectError && selectError.code === 'PGRST116') { // PGRST116 means "no rows found"
+        // Profile does not exist, so insert it with default values
+        console.log('API Route: Profile not found. Creating new profile with defaults.');
+        const { data: newProfileData, error: insertError } = await adminClientInstance
+            .from('profiles')
+            .insert({
+                id: userId,
+                email: userEmail,
+                credits: 25, // Default initial credits for new users
+                current_plan: 'free',
+                has_purchased_app: false,
+                cloud_sync_enabled: false,
+                auto_cloud_sync: false,
+                deletion_policy_days: 0,
+                created_at: new Date().toISOString()
+            })
+            .select('*')
+            .single();
+
+        if (insertError) {
+            console.error('❌ API Route Error inserting new profile:', insertError);
+            return NextResponse.json({ error: insertError.message || 'Failed to create new profile' }, { status: 500 });
+        }
+        console.log('✅ API Route: New profile created successfully. Returning:', newProfileData?.id);
+        return NextResponse.json({ success: true, profile: newProfileData }, { status: 200 });
+
+    } else if (selectError) {
+        // Other errors during select (e.g., DB connection issue, RLS if admin key fails)
+        console.error('❌ API Route Error fetching existing profile:', selectError);
+        return NextResponse.json({ error: selectError.message || 'Failed to fetch existing profile' }, { status: 500 });
+    } else {
+        // Profile exists, return it without modification
+        console.log('✅ API Route: Existing profile found. Returning:', existingProfile?.id, 'Credits:', existingProfile?.credits);
+        return NextResponse.json({ success: true, profile: existingProfile }, { status: 200 });
     }
-
-    console.log('✅ API Route: Profile upsert successful. Returning profile:', profileData?.id);
-    return NextResponse.json({ success: true, profile: profileData }, { status: 200 });
 
   } catch (error: any) {
     console.error('❌ API Route General Error during request processing:', error);
-    return NextResponse.json({ error: error.message || 'An unexpected error occurred' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'An unexpected error occurred in API Route' }, { status: 500 });
   }
 }

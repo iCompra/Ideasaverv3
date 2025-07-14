@@ -20,22 +20,39 @@ export default function PricingPage() {
   // CRITICAL: Redirection for new users to enforce plan selection
   useEffect(() => {
     // If auth state is loaded, user is logged in, but NO plan is selected, redirect here.
-    // This page handles the plan selection.
-    // So, no redirection FROM this page if user exists and !profile.planSelected
-    // Redirection should primarily be handled FROM /login if !profile.planSelected.
-    // This page is a destination for plan selection.
+    if (!isLoading && user && profile?.plan_selected) {
+      console.log("User already has a plan, redirecting to /record");
+      router.push('/record');
+    } else if (!isLoading && !user) {
+      console.log("Not logged in, redirecting to /login");
+      router.push('/login');
+    }
   }, [user, profile, isLoading, router]);
 
 
   // --- Function to handle "Continue with Free Plan" ---
   const handleSelectFreePlan = async () => {
     if (!user || !profile || isLoading) {
-      toast({ title: "Error", description: "User not loaded.", variant: "destructive" });
+      toast({ 
+        title: "Error", 
+        description: "User not loaded.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    if (profile.plan_selected) {
+      toast({
+        title: "Notice",
+        description: "You've already selected a plan.",
+        variant: "default"
+      });
       return;
     }
 
     setIsSelectingFreePlan(true);
     try {
+      console.log("Updating profile for user:", user.id);
       // Update profile in Supabase to mark plan as selected and set free plan
       const { error } = await getSupabaseBrowserClient()
         .from('profiles')
@@ -50,11 +67,10 @@ export default function PricingPage() {
         console.error("Error selecting free plan:", error);
         toast({ title: "Error", description: error.message || "Failed to select free plan.", variant: "destructive" });
       } else {
+        console.log("Free plan selected successfully!");
         // Update local state in useAuth
-        if (updateCredits) { // Assuming updateCredits can handle updating plan_selected as well
+        if (typeof updateCredits === 'function') { // Verify updateCredits is a function
             updateCredits(25); // Optimistically update credits
-            // A full refresh of profile via useAuth would be ideal here.
-            // For now, rely on useAuth's next re-fetch or page redirect.
         }
         toast({ title: "Success!", description: "You are now on the Free Plan! Enjoy 25 credits.", variant: "default" });
         router.push('/record'); // Redirect to main app page
