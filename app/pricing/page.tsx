@@ -3,56 +3,45 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/hooks/use-auth';
-import { getSupabaseBrowserClient } from '@/src/lib/supabaseClient';
-import { useToast } from '@/hooks/use-toast'; // Correct import for Shadcn toast hook
-import { Check, Star, Gift, DollarSign, Wallet, Gem } from 'lucide-react';
+import { getSupabaseBrowserClient } from '@/src/lib/supabaseClient'; // FIXED: Correct path
+import { useToast } from '@/hooks/use-toast'; // FIXED: Correct Shadcn toast import
+import { Check, Star, Gift, DollarSign, Wallet, Gem } from 'lucide-react'; // Lucide icons
 
 export default function PricingPage() {
   const { user, profile, isLoading, updateCredits } = useAuth();
   const router = useRouter();
-  // Initialize useToast hook
-  const { toast } = useToast();
+  const { toast } = useToast(); // Initialize useToast hook
 
   const [giftCode, setGiftCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [isSelectingFreePlan, setIsSelectingFreePlan] = useState(false);
 
-  // CRITICAL: Redirection for new users to enforce plan selection
+  // --- Redirection for users who have already selected a plan ---
   useEffect(() => {
-    // If auth state is loaded, user is logged in, but NO plan is selected, redirect here.
-    if (!isLoading && user && profile?.plan_selected) {
-      console.log("User already has a plan, redirecting to /record");
+    // If auth state is loaded, user is logged in, and a plan IS selected, redirect away from pricing
+    if (!isLoading && user && profile && profile.plan_selected) {
+      console.log("PricingPage: User has plan, redirecting to /record");
       router.push('/record');
     } else if (!isLoading && !user) {
-      console.log("Not logged in, redirecting to /login");
+      // If not loading and no user, means unauthenticated, redirect to login
+      console.log("PricingPage: Not authenticated, redirecting to /login");
       router.push('/login');
     }
   }, [user, profile, isLoading, router]);
 
-
   // --- Function to handle "Continue with Free Plan" ---
   const handleSelectFreePlan = async () => {
     if (!user || !profile || isLoading) {
-      toast({ 
-        title: "Error", 
-        description: "User not loaded.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Error", description: "User or profile not loaded.", variant: "destructive" });
       return;
     }
-
     if (profile.plan_selected) {
-      toast({
-        title: "Notice",
-        description: "You've already selected a plan.",
-        variant: "default"
-      });
-      return;
+        toast({ title: "Info", description: "You have already selected a plan.", variant: "default" });
+        return;
     }
 
     setIsSelectingFreePlan(true);
     try {
-      console.log("Updating profile for user:", user.id);
       // Update profile in Supabase to mark plan as selected and set free plan
       const { error } = await getSupabaseBrowserClient()
         .from('profiles')
@@ -67,13 +56,12 @@ export default function PricingPage() {
         console.error("Error selecting free plan:", error);
         toast({ title: "Error", description: error.message || "Failed to select free plan.", variant: "destructive" });
       } else {
-        console.log("Free plan selected successfully!");
         // Update local state in useAuth
-        if (typeof updateCredits === 'function') { // Verify updateCredits is a function
-            updateCredits(25); // Optimistically update credits
+        if (updateCredits && typeof updateCredits === 'function') {
+          updateCredits(25); 
         }
         toast({ title: "Success!", description: "You are now on the Free Plan! Enjoy 25 credits.", variant: "default" });
-        router.push('/record'); // Redirect to main app page
+        router.push('/record'); // Redirect to main app page after selection
       }
     } catch (error: any) {
       console.error("Unexpected error selecting free plan:", error);
@@ -83,7 +71,7 @@ export default function PricingPage() {
     }
   };
 
-  // --- Function to handle Gift Code Redemption (from previous prompt) ---
+  // --- Function to handle Gift Code Redemption ---
   const handleRedeemCode = async () => {
     if (!user || !profile || isLoading) {
       toast({
@@ -121,9 +109,9 @@ export default function PricingPage() {
         variant: 'default',
       });
       if (updateCredits && typeof updateCredits === 'function') {
-        updateCredits(data.newCredits);
+        updateCredits(data.newCredits); 
       }
-      setGiftCode('');
+      setGiftCode(''); 
     } catch (err: any) {
       console.error('Redeem error:', err);
       toast({
@@ -140,22 +128,24 @@ export default function PricingPage() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-dark-primary-bg">
-        <p className="text-dark-text-light">Loading plans...</p>
+        <p className="text-dark-text-light">Loading plans...</p> 
       </div>
     );
   }
 
-  // If not logged in, or no profile, redirect to login (should be handled by useAuth for protected routes)
+  // If not logged in, or no profile (and not loading), redirect handled by useEffect above
   if (!user || !profile) {
-    useEffect(() => {
-      router.push('/login'); // If somehow user lands here unauthenticated
-    }, [router]);
-    return null;
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-dark-primary-bg">
+        <p className="text-dark-text-light">Redirecting to login...</p> 
+      </div>
+    );
   }
 
   // --- Main Page Content ---
+  // Determine plan status
   const isProUser = profile.has_purchased_app || profile.current_plan === 'full_app_purchase';
-  const hasSelectedPlan = profile.plan_selected;
+  const hasSelectedPlan = profile.plan_selected; 
 
   return (
     <div className="min-h-screen bg-dark-primary-bg text-dark-text-light py-10 px-4 flex flex-col items-center">
@@ -170,9 +160,9 @@ export default function PricingPage() {
         </a>
       </div>
 
-      {/* Conditional Plan Display (based on isProUser and hasSelectedPlan) */}
+      {/* Conditional Plan Display Section */}
+      {/* Display for NEW Users (no plan selected yet) */}
       {!isProUser && !hasSelectedPlan && (
-        // --- Display for NEW Users (no plan selected yet) ---
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl mb-12">
           {/* Free Plan Card */}
           <div className="bg-dark-secondary-bg p-8 rounded-xl shadow-lg flex flex-col items-center text-center">
@@ -272,7 +262,7 @@ export default function PricingPage() {
               Buy Now (Coming Soon!)
             </button>
           </div>
-          {/* Repeat for 500 Credits, 2000 Credits */}
+          {/* Add more credit packs here if needed */}
         </div>
       </div>
 
@@ -292,7 +282,7 @@ export default function PricingPage() {
           <button
             onClick={handleRedeemCode}
             disabled={isRedeeming || !giftCode.trim()}
-            className="bg-accent-purple text-dark-text-light px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity duration-200"
+            className="bg-accent-purple text-dark-text-light px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isRedeeming ? 'Redeeming...' : 'Redeem'}
           </button>
