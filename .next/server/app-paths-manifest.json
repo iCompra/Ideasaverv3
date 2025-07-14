@@ -7,5 +7,6 @@
   "/pricing/page": "app/pricing/page.js",
   "/record/page": "app/record/page.js",
   "/settings/page": "app/settings/page.js",
+  "/history/page": "app/history/page.js",
   "/api/profile/route": "app/api/profile/route.js"
 }
