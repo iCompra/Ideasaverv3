@@ -27,7 +27,7 @@ export default function Header() {
 
   const publicNavItems = [
     { name: 'Pricing', href: '/pricing' },
-    { name: 'How Credits Work', href: '/how-credits-work' },
+    { name: 'How Credits Work', href: '/credits' },
     { name: 'About', href: '/about' },
   ];
 
