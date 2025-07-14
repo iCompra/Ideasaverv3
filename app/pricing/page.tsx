@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast'; // FIXED: Correct Shadcn toast imp
 import { Check, Star, Gift, DollarSign, Wallet, Gem } from 'lucide-react'; // Lucide icons
 
 export default function PricingPage() {
-  const { user, profile, isLoading, updateCredits } = useAuth();
+  const { user, profile, isLoading, updateCredits, refetchProfile } = useAuth(); // CRITICAL: Get refetchProfile
   const router = useRouter();
   const { toast } = useToast(); // Initialize useToast hook
 
@@ -42,41 +42,30 @@ export default function PricingPage() {
 
     setIsSelectingFreePlan(true);
     console.log('🔍 PricingPage: Attempting to select Free Plan for user:', user.id);
-    console.log('🔍 PricingPage: Current profile state:', profile);
     
     try {
-      console.log('🔍 PricingPage: Sending Supabase update with data:', {
+      console.log('🔍 PricingPage: Sending profile update via refetchProfile with data:', {
         current_plan: 'free',
         plan_selected: true,
-        credits: 25
+        credits: 25 // Grant welcome credits
       });
       
-      // Update profile in Supabase to mark plan as selected and set free plan
-      const { error } = await getSupabaseBrowserClient()
-        .from('profiles')
-        .update({
-          current_plan: 'free',
-          plan_selected: true,
-          credits: 25 // Grant welcome credits
-        })
-        .eq('id', user.id);
-
-      if (error) {
-        console.error("❌ PricingPage: Supabase error selecting free plan:", error);
-        console.error("❌ PricingPage: Error details:", JSON.stringify(error, null, 2));
-        toast({ title: "Error", description: error.message || "Failed to select free plan.", variant: "destructive" });
-      } else {
-        console.log("✅ PricingPage: Free Plan selected successfully in Supabase!");
-        // Update local state in useAuth
-        if (updateCredits && typeof updateCredits === 'function') {
-          updateCredits(25); 
-        }
-        toast({ title: "Success!", description: "You are now on the Free Plan! Enjoy 25 credits.", variant: "default" });
-        router.push('/record'); // Redirect to main app page after selection
-      }
+      // CRITICAL: Call refetchProfile with update data
+      // This sends the update to the API Route, which handles the DB upsert/update.
+      await refetchProfile({ 
+        current_plan: 'free',
+        plan_selected: true,
+        credits: 25 // Grant welcome credits
+      }); 
+      
+      console.log("✅ PricingPage: Free Plan selected successfully via refetchProfile!");
+      
+      toast({ title: "Success!", description: "You are now on the Free Plan! Enjoy 25 credits.", variant: "default" });
+      
+      // Note: Redirection will be handled by useAuth's useEffect after profile is updated
+      // No manual router.push needed as useAuth will detect plan_selected: true and redirect
     } catch (error: any) {
       console.error("❌ PricingPage: Unexpected error selecting free plan:", error);
-      console.error("❌ PricingPage: Unexpected error details:", JSON.stringify(error, null, 2));
       toast({ title: "Error", description: error.message || "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setIsSelectingFreePlan(false);
@@ -120,6 +109,10 @@ export default function PricingPage() {
         description: `Gift code redeemed! You now have ${data.newCredits} credits.`,
         variant: 'default',
       });
+      
+      // CRITICAL: Call refetchProfile with the new credits
+      await refetchProfile({ credits: data.newCredits });
+      
       if (updateCredits && typeof updateCredits === 'function') {
         updateCredits(data.newCredits); 
       }
