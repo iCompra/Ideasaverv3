@@ -4,5 +4,6 @@
   "/login/page": "app/login/page.js",
   "/about/page": "app/about/page.js",
   "/credits/page": "app/credits/page.js",
-  "/pricing/page": "app/pricing/page.js"
+  "/pricing/page": "app/pricing/page.js",
+  "/api/profile/route": "app/api/profile/route.js"
 }
