@@ -106,6 +106,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log('⚠️ useAuth: Cannot update profile, no user logged in or missing user data.');
     }
   }, [user, handleProfileUpsert]);
+
   useEffect(() => {
     console.log('useAuth: useEffect started');
     
