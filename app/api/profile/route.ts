@@ -59,8 +59,7 @@ export async function POST(request: Request) {
       
       const updatePayload = {
         ...existingProfile,
-        ...additionalData, // This will override existing values only if provided
-        updated_at: new Date().toISOString()
+        ...additionalData // CRITICAL: This will override existing values only if provided
       };
 
       console.log('API Route: Update payload:', updatePayload);
@@ -92,9 +91,7 @@ export async function POST(request: Request) {
         cloud_sync_enabled: false,
         auto_cloud_sync: false,
         deletion_policy_days: 0,
-        plan_selected: false, 
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        plan_selected: false
       };
 
       const insertPayload = {
