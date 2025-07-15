@@ -30,7 +30,7 @@ export default function RecordingControls() {
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Get user and profile from useAuth hook
-  const { user, profile, isLoading: authLoading, updateCredits } = useAuth();
+  const { user, profile, isLoading: authLoading, updateCredits, refetchProfile } = useAuth();
   
  
 
@@ -267,6 +267,9 @@ export default function RecordingControls() {
         title: 'Transcription Complete!',
         description: `Transcription and title generation completed successfully! ${transcriptionCost} credits used.`,
       });
+      
+      // CRITICAL: Update credits in database using refetchProfile
+      await refetchProfile({ credits: newCredits });
       
     } catch (error) {
       logError(error as Error, { 
