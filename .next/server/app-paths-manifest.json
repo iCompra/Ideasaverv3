@@ -6,5 +6,6 @@
   "/credits/page": "app/credits/page.js",
   "/about/page": "app/about/page.js",
   "/history/page": "app/history/page.js",
+  "/settings/page": "app/settings/page.js",
   "/api/profile/route": "app/api/profile/route.js"
 }
